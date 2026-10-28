@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
-import { TG_URL, X_URL } from "./site-header";
+import { GH_URL, TG_URL, X_URL } from "./site-header";
 
 export function SiteFooter() {
   return (
@@ -33,6 +33,7 @@ export function SiteFooter() {
             <Link to="/docs" hash="chains" className="c-muted hover:text-white">Supported chains</Link>
             {X_URL && (<a href={X_URL} target="_blank" rel="noreferrer" className="c-muted hover:text-white">X</a>)}
             {TG_URL && (<a href={TG_URL} target="_blank" rel="noreferrer" className="c-muted hover:text-white">Telegram</a>)}
+            <a href={GH_URL} target="_blank" rel="noreferrer" className="c-muted hover:text-white">GitHub</a>
           </div>
           <div className="c-dim text-xs">© 2026 Runehood</div>
         </div>
