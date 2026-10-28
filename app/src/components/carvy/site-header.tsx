@@ -39,9 +39,6 @@ export function SiteHeader() {
           <span className="group relative cursor-default border-b-2 border-transparent py-1 text-sm c-muted" tabIndex={0} aria-label="Marketplace Runes, coming soon">
             <span className="group-hover:invisible group-focus:invisible">Marketplace Runes</span>
             <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap font-semibold opacity-0 transition group-hover:opacity-100 group-focus:opacity-100" style={{ color: "var(--c-rose)" }}>Coming soon</span>
-            <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border px-2.5 py-1 font-mono text-[11px] opacity-0 transition group-hover:opacity-100 group-focus:opacity-100" style={{ background: "var(--c-surface-2)", borderColor: "var(--c-line-2)", color: "var(--c-rose)" }}>
-              Coming soon
-            </span>
           </span>
         </nav>
         <div className="flex items-center gap-2">
