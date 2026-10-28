@@ -36,6 +36,12 @@ export function SiteHeader() {
               {n.label}
             </Link>
           ))}
+          <span className="group relative cursor-default border-b-2 border-transparent py-1 text-sm c-muted" tabIndex={0} aria-label="Marketplace Runes, coming soon">
+            Marketplace Runes
+            <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border px-2.5 py-1 font-mono text-[11px] opacity-0 transition group-hover:opacity-100 group-focus:opacity-100" style={{ background: "var(--c-surface-2)", borderColor: "var(--c-line-2)", color: "var(--c-rose)" }}>
+              Coming soon
+            </span>
+          </span>
         </nav>
         <div className="flex items-center gap-2">
           {TG_URL && (<a href={TG_URL} target="_blank" rel="noreferrer" aria-label="Runehood on Telegram" className="hidden h-10 w-10 items-center justify-center rounded-lg border transition hover:border-[var(--c-line-2)] sm:flex" style={{ background: "var(--c-surface)" }}>
@@ -58,6 +64,7 @@ export function SiteHeader() {
             {n.label}
           </Link>
         ))}
+        <span className="shrink-0 rounded-full px-3 py-1 text-sm c-dim">Marketplace Runes · soon</span>
       </nav>
     </header>
   );
