@@ -1,0 +1,5 @@
+-- Launchpad V2 (Uniswap V4 graduation + creator tax). Additive.
+ALTER TABLE runes ADD COLUMN launchpad TEXT NOT NULL DEFAULT '';
+ALTER TABLE runes ADD COLUMN buy_tax INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE runes ADD COLUMN sell_tax INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE runes ADD COLUMN migrated INTEGER NOT NULL DEFAULT 0;

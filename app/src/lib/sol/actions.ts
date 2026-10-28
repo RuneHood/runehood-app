@@ -1,0 +1,301 @@
+// Browser-side Solana flows: launch a Rune (Meteora DBC pool + first buy), buy, sell, bridge to Bitcoin (vault + memo).
+import { recordSol, saveRuneMeta } from "../api/carvy.functions";
+import { LAUNCHLAB_PROGRAM, LAUNCHLAB_SOL_CONFIG, MEMO_PROGRAM, RAYDIUM_PLATFORMS, SOL_CONFIGS, SOL_LAUNCHER, SOL_RPCS, SOL_VAULT, WSOL } from "./config";
+
+type SolProvider = {
+  publicKey?: { toString(): string } | null;
+  connect: () => Promise<{ publicKey: { toString(): string } }>;
+  signTransaction: <T>(tx: T) => Promise<T>;
+  signAllTransactions: <T>(txs: T[]) => Promise<T[]>;
+};
+
+function provider(): SolProvider {
+  const w = window as unknown as { phantom?: { solana?: SolProvider }; solflare?: SolProvider; backpack?: { solana?: SolProvider }; solana?: SolProvider };
+  const p = w.phantom?.solana ?? w.solflare ?? w.backpack?.solana ?? w.solana;
+  if (!p) throw new Error("No Solana wallet found. Install Phantom, Solflare or Backpack.");
+  return p;
+}
+
+async function libs() {
+  const web3 = await import("@solana/web3.js");
+  const spl = await import("@solana/spl-token");
+  const dbc = await import("@meteora-ag/dynamic-bonding-curve-sdk");
+  const BN = (await import("bn.js")).default;
+  const connection = new web3.Connection(SOL_RPCS[0], "confirmed");
+  return { web3, spl, dbc, BN, connection, client: new dbc.DynamicBondingCurveClient(connection, "confirmed") };
+}
+
+async function signSend(tx: import("@solana/web3.js").Transaction, owner: string, extra: import("@solana/web3.js").Keypair[] = []) {
+  const { connection, web3 } = await libs();
+  tx.feePayer = new web3.PublicKey(owner);
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  if (extra.length) tx.partialSign(...extra);
+  const signed = await provider().signTransaction(tx);
+  const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, maxRetries: 5 });
+  try {
+    await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+  } catch (e) {
+    // RPC nodes can lag on block height; trust the signature status before reporting failure
+    for (let i = 0; i < 10; i++) {
+      const st = (await connection.getSignatureStatus(sig, { searchTransactionHistory: true })).value;
+      if (st?.err) throw new Error("Transaction failed on Solana");
+      if (st?.confirmationStatus === "confirmed" || st?.confirmationStatus === "finalized") return sig;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    throw e;
+  }
+  return sig;
+}
+
+const toUnits = (v: string, dec: number) => {
+  const [i, f = ""] = v.trim().split(".");
+  return BigInt(i || "0") * 10n ** BigInt(dec) + BigInt((f + "0".repeat(dec)).slice(0, dec) || "0");
+};
+
+export async function launchSolRune(p: {
+  owner: string;
+  title: string;
+  ticker: string;
+  runeName: string;
+  description: string;
+  imageUrl: string;
+  website: string;
+  x: string;
+  tg: string;
+  taxBps: number;
+  initialBuySol: string;
+}): Promise<string> {
+  const meta = await saveRuneMeta({ data: { title: p.title, description: p.description, imageUrl: p.imageUrl, website: p.website, x: p.x, tg: p.tg, runeName: p.runeName } });
+  const uri = `${window.location.origin}/api/meta/${meta.id}?s=${encodeURIComponent(p.ticker)}`;
+  if (SOL_LAUNCHER === "raydium") return launchRaydium({ owner: p.owner, title: p.title, ticker: p.ticker, uri, taxBps: p.taxBps, initialBuySol: p.initialBuySol });
+  const { web3, dbc, BN, client } = await libs();
+  const config = SOL_CONFIGS[p.taxBps] ?? SOL_CONFIGS[0];
+  const mint = web3.Keypair.generate();
+  const owner = new web3.PublicKey(p.owner);
+  const buy = p.initialBuySol ? toUnits(p.initialBuySol, 9) : 0n;
+  const tx = await client.creator.createPoolWithFirstBuy({
+    createPoolParam: { baseMint: mint.publicKey, config: new web3.PublicKey(config), name: p.title, symbol: p.ticker, uri: `${window.location.origin}/api/meta/${meta.id}?s=${encodeURIComponent(p.ticker)}`, payer: owner, poolCreator: owner },
+    firstBuyParam: buy > 0n ? { buyer: owner, buyAmount: new BN(buy.toString()), minimumAmountOut: new BN(1), referralTokenAccount: null } : undefined,
+  });
+  const sig = await signSend(tx, p.owner, [mint]);
+  await recordSol({ data: { signature: sig } }).catch(() => {});
+  void dbc;
+  return mint.publicKey.toBase58();
+}
+
+export async function quoteSol(pool: string, side: "buy" | "sell", amount: string): Promise<number> {
+  if (await isRaydiumPool(pool)) return quoteRaydium(pool, side, amount);
+  const { web3, dbc, BN, client, connection } = await libs();
+  const ps = await client.state.getPool(new web3.PublicKey(pool));
+  const state = (ps as { poolState?: unknown }).poolState ?? ps;
+  const cfg = await client.state.getPoolConfig((state as { config: import("@solana/web3.js").PublicKey }).config);
+  const amountIn = side === "buy" ? toUnits(amount, 9) : toUnits(amount, 6);
+  const currentPoint = await dbc.getCurrentPoint(connection, (cfg as { activationType: number }).activationType);
+  const q = client.pool.swapQuote({ virtualPool: ps as never, config: cfg as never, swapBaseForQuote: side === "sell", amountIn: new BN(amountIn.toString()), slippageBps: 500, hasReferral: false, eligibleForFirstSwapWithMinFee: false, currentPoint } as never);
+  const out = BigInt((q as { outputAmount?: { toString(): string } }).outputAmount?.toString() ?? "0");
+  return side === "buy" ? Number(out) / 1e6 : Number(out) / 1e9;
+}
+
+export async function tradeSol(p: { owner: string; pool: string; side: "buy" | "sell"; amount: string }): Promise<string> {
+  if (await isRaydiumPool(p.pool)) return tradeRaydium(p);
+  const { web3, BN, client } = await libs();
+  const expected = await quoteSol(p.pool, p.side, p.amount);
+  const min = p.side === "buy" ? BigInt(Math.floor(expected * 0.95 * 1e6)) : BigInt(Math.floor(expected * 0.95 * 1e9));
+  const tx = await client.pool.swap({
+    owner: new web3.PublicKey(p.owner),
+    amountIn: new BN((p.side === "buy" ? toUnits(p.amount, 9) : toUnits(p.amount, 6)).toString()),
+    minimumAmountOut: new BN(min.toString()),
+    swapBaseForQuote: p.side === "sell",
+    pool: new web3.PublicKey(p.pool),
+    referralTokenAccount: null,
+    payer: new web3.PublicKey(p.owner),
+  } as never);
+  const sig = await signSend(tx, p.owner);
+  await recordSol({ data: { signature: sig } }).catch(() => {});
+  return sig;
+}
+
+/** Bridge to Bitcoin: send tokens to the Carvy vault with the Bitcoin address as memo (one transaction). */
+export async function bridgeSolToBitcoin(p: { owner: string; mint: string; amount: string; btcAddress: string }): Promise<string> {
+  const { web3, spl } = await libs();
+  const owner = new web3.PublicKey(p.owner);
+  const mint = new web3.PublicKey(p.mint);
+  const vault = new web3.PublicKey(SOL_VAULT);
+  const from = spl.getAssociatedTokenAddressSync(mint, owner);
+  const to = spl.getAssociatedTokenAddressSync(mint, vault);
+  const tx = new web3.Transaction().add(
+    spl.createAssociatedTokenAccountIdempotentInstruction(owner, to, vault, mint),
+    spl.createTransferCheckedInstruction(from, mint, to, owner, toUnits(p.amount, 6), 6),
+    new web3.TransactionInstruction({ programId: new web3.PublicKey(MEMO_PROGRAM), keys: [], data: new TextEncoder().encode(`${/runehood/.test(window.location.hostname) ? "runehood" : "carvy"}:btc:${p.btcAddress}`) as never }),
+  );
+  const sig = await signSend(tx, p.owner);
+  await recordSol({ data: { signature: sig } }).catch(() => {});
+  return sig;
+}
+
+export async function solTokenBalance(owner: string, mint: string): Promise<{ token: number; sol: number }> {
+  const { web3, spl, connection } = await libs();
+  const o = new web3.PublicKey(owner);
+  const sol = (await connection.getBalance(o)) / 1e9;
+  if (mint === WSOL) return { token: sol, sol };
+  const ata = spl.getAssociatedTokenAddressSync(new web3.PublicKey(mint), o);
+  const b = await connection.getTokenAccountBalance(ata).catch(() => null);
+  return { token: b ? Number(b.value.uiAmountString ?? 0) : 0, sol };
+}
+
+/** Unclaimed creator trading fees of a pool (SOL). */
+export async function solCreatorFees(pool: string): Promise<number> {
+  const { client } = await libs();
+  const m = await client.state.getPoolFeeMetrics(pool);
+  return Number(m.current.creatorQuoteFee.toString()) / 1e9;
+}
+
+/** Creator claims their share of trading fees (and creator tax) from the Meteora pool. */
+export async function claimSolCreatorFees(owner: string, pool: string): Promise<string> {
+  const { web3, BN, client } = await libs();
+  const tx = await client.creator.claimCreatorTradingFee({
+    creator: new web3.PublicKey(owner),
+    payer: new web3.PublicKey(owner),
+    pool: new web3.PublicKey(pool),
+    maxBaseAmount: new BN("18446744073709551615"),
+    maxQuoteAmount: new BN("18446744073709551615"),
+  });
+  return signSend(tx, owner);
+}
+
+/** Carvy fee wallet: unclaimed platform (partner) fees per pool, in SOL. */
+export async function platformFees(owner: string, pools: string[]): Promise<Array<{ pool: string; sol: number }>> {
+  const { client } = await libs();
+  const out: Array<{ pool: string; sol: number }> = [];
+  for (const p of pools) {
+    try {
+      const ps = await client.state.getPool(p);
+      const cfg = await client.state.getPoolConfig((ps as unknown as { poolState: { config: import("@solana/web3.js").PublicKey } }).poolState.config);
+      if ((cfg as unknown as { feeClaimer: { toBase58(): string } }).feeClaimer.toBase58() !== owner) continue;
+      const m = await client.state.getPoolFeeMetrics(p);
+      out.push({ pool: p, sol: Number(m.current.partnerQuoteFee.toString()) / 1e9 });
+    } catch {
+      /* pool from another fee claimer */
+    }
+  }
+  return out;
+}
+
+export async function claimPlatformFees(owner: string, pool: string): Promise<string> {
+  const { web3, BN, client } = await libs();
+  const tx = await client.partner.claimPartnerTradingFee({
+    feeClaimer: new web3.PublicKey(owner),
+    payer: new web3.PublicKey(owner),
+    pool: new web3.PublicKey(pool),
+    maxBaseAmount: new BN("18446744073709551615"),
+    maxQuoteAmount: new BN("18446744073709551615"),
+  });
+  return signSend(tx, owner);
+}
+
+// ---------------------------------------------------------------- Raydium LaunchLab
+
+async function raydiumFor(owner: string) {
+  const { web3, connection, BN } = await libs();
+  const sdk = await import("@raydium-io/raydium-sdk-v2");
+  const p = provider();
+  const raydium = await sdk.Raydium.load({
+    connection,
+    owner: new web3.PublicKey(owner),
+    signAllTransactions: (<T,>(txs: T[]) => p.signAllTransactions(txs)) as never,
+    disableLoadToken: true,
+  });
+  return { sdk, raydium, web3, BN, connection };
+}
+
+/** Pool state of a LaunchLab pool (null when the pool is a Meteora pool). */
+async function launchLabState(pool: string) {
+  const { web3, connection } = await libs();
+  const acc = await connection.getAccountInfo(new web3.PublicKey(pool));
+  if (!acc || acc.owner.toBase58() !== LAUNCHLAB_PROGRAM) return null;
+  const d = acc.data;
+  const u64 = (o: number) => d.readBigUInt64LE(o);
+  return { status: d[17], decA: d[18], decB: d[19], vA: u64(37), vB: u64(45), rA: u64(53), rB: u64(61), mintA: new web3.PublicKey(d.subarray(205, 237)) };
+}
+
+export const isRaydiumPool = async (pool: string) => !!(await launchLabState(pool).catch(() => null));
+
+async function launchRaydium(p: { owner: string; title: string; ticker: string; uri: string; taxBps: number; initialBuySol: string }): Promise<string> {
+  const { sdk, raydium, web3, BN } = await raydiumFor(p.owner);
+  const tier = p.taxBps >= 500 ? 150 : p.taxBps >= 300 ? 125 : p.taxBps >= 100 ? 100 : 75;
+  const mintA = web3.Keypair.generate();
+  const buy = p.initialBuySol ? toUnits(p.initialBuySol, 9) : 0n;
+  const { execute } = await raydium.launchpad.createLaunchpad({
+    programId: sdk.LAUNCHPAD_PROGRAM,
+    mintA: mintA.publicKey,
+    decimals: 6,
+    name: p.title,
+    symbol: p.ticker,
+    uri: p.uri,
+    migrateType: "cpmm",
+    configId: new web3.PublicKey(LAUNCHLAB_SOL_CONFIG),
+    platformId: new web3.PublicKey(RAYDIUM_PLATFORMS[tier]),
+    txVersion: sdk.TxVersion.LEGACY,
+    buyAmount: new BN(buy.toString()),
+    slippage: new BN(500),
+    createOnly: buy === 0n,
+    extraSigners: [mintA],
+  } as never);
+  const res = (await execute({ sendAndConfirm: true, sequentially: true })) as { txIds?: string[]; txId?: string };
+  for (const sig of res.txIds ?? (res.txId ? [res.txId] : [])) await recordSol({ data: { signature: sig } }).catch(() => {});
+  return mintA.publicKey.toBase58();
+}
+
+async function quoteRaydium(pool: string, side: "buy" | "sell", amount: string): Promise<number> {
+  const st = await launchLabState(pool);
+  if (!st) return 0;
+  const A = Number(st.vA - st.rA) / 10 ** st.decA;
+  const B = Number(st.vB + st.rB) / 10 ** st.decB;
+  const FEE = 0.0125; // 0.5% creator + 0.5% Carvy + 0.25% Raydium
+  const x = Number(amount);
+  if (side === "buy") {
+    const net = x * (1 - FEE);
+    return A - (A * B) / (B + net);
+  }
+  const gross = B - (A * B) / (A + x);
+  return gross * (1 - FEE);
+}
+
+async function tradeRaydium(p: { owner: string; pool: string; side: "buy" | "sell"; amount: string }): Promise<string> {
+  const st = await launchLabState(p.pool);
+  if (!st) throw new Error("Pool not found");
+  const { sdk, raydium, BN } = await raydiumFor(p.owner);
+  const base = { programId: sdk.LAUNCHPAD_PROGRAM, mintA: st.mintA, slippage: new BN(500), txVersion: sdk.TxVersion.LEGACY };
+  const built =
+    p.side === "buy"
+      ? await raydium.launchpad.buyToken({ ...base, buyAmount: new BN(toUnits(p.amount, 9).toString()) } as never)
+      : await raydium.launchpad.sellToken({ ...base, sellAmount: new BN(toUnits(p.amount, 6).toString()) } as never);
+  const res = (await built.execute({ sendAndConfirm: true })) as { txId: string };
+  await recordSol({ data: { signature: res.txId } }).catch(() => {});
+  return res.txId;
+}
+
+/** Creator claims their LaunchLab creator fees (curve + graduated pool). */
+export async function claimRaydiumCreatorFees(owner: string): Promise<string> {
+  const { sdk, raydium, web3 } = await raydiumFor(owner);
+  const built = await raydium.launchpad.claimCreatorFee({ programId: sdk.LAUNCHPAD_PROGRAM, mintB: new web3.PublicKey(WSOL), txVersion: sdk.TxVersion.LEGACY } as never);
+  const res = (await built.execute({ sendAndConfirm: true })) as { txId: string };
+  return res.txId;
+}
+
+/** Carvy fee wallet: claim LaunchLab platform fees of every Carvy platform. */
+export async function claimRaydiumPlatformFees(owner: string): Promise<string[]> {
+  const { sdk, raydium, web3 } = await raydiumFor(owner);
+  const out: string[] = [];
+  for (const platformId of Object.values(RAYDIUM_PLATFORMS)) {
+    try {
+      const built = await raydium.launchpad.claimVaultPlatformFee({ programId: sdk.LAUNCHPAD_PROGRAM, platformId: new web3.PublicKey(platformId), mintB: new web3.PublicKey(WSOL), txVersion: sdk.TxVersion.LEGACY } as never);
+      const res = (await built.execute({ sendAndConfirm: true })) as { txId: string };
+      out.push(res.txId);
+    } catch {
+      /* nothing to claim on this platform */
+    }
+  }
+  return out;
+}
