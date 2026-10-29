@@ -13,6 +13,7 @@ const NAV = [
   { to: "/runes", label: "Explore" },
   { to: "/create", label: "Launch" },
   { to: "/verify", label: "Proof" },
+  { to: "/marketplace", label: "Marketplace" },
   { to: "/roadmap", label: "Roadmap" },
   { to: "/docs", label: "Docs" },
   { to: "/account", label: "Account" },
@@ -36,10 +37,6 @@ export function SiteHeader() {
               {n.label}
             </Link>
           ))}
-          <span className="group relative cursor-default border-b-2 border-transparent py-1 text-sm c-muted" tabIndex={0} aria-label="Marketplace Runes, coming soon">
-            <span className="group-hover:invisible group-focus:invisible">Marketplace Runes</span>
-            <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap font-semibold opacity-0 transition group-hover:opacity-100 group-focus:opacity-100" style={{ color: "var(--c-rose)" }}>Coming soon</span>
-          </span>
         </nav>
         <div className="flex items-center gap-2">
           {TG_URL && (<a href={TG_URL} target="_blank" rel="noreferrer" aria-label="Runehood on Telegram" className="hidden h-10 w-10 items-center justify-center rounded-lg border transition hover:border-[var(--c-line-2)] sm:flex" style={{ background: "var(--c-surface)" }}>
@@ -62,7 +59,6 @@ export function SiteHeader() {
             {n.label}
           </Link>
         ))}
-        <span className="shrink-0 rounded-full px-3 py-1 text-sm c-dim">Marketplace Runes · soon</span>
       </nav>
     </header>
   );

@@ -14,6 +14,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RunesRouteImport } from './routes/runes'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as AccountRouteImport } from './routes/account'
@@ -47,6 +48,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const RoadmapRoute = RoadmapRouteImport.update({
   id: '/roadmap',
   path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceRoute = MarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AccountRoute
   '/create': typeof CreateRoute
   '/docs': typeof DocsRoute
+  '/marketplace': typeof MarketplaceRoute
   '/roadmap': typeof RoadmapRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/runes': typeof RunesRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/create': typeof CreateRoute
   '/docs': typeof DocsRoute
+  '/marketplace': typeof MarketplaceRoute
   '/roadmap': typeof RoadmapRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/runes': typeof RunesRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/create': typeof CreateRoute
   '/docs': typeof DocsRoute
+  '/marketplace': typeof MarketplaceRoute
   '/roadmap': typeof RoadmapRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/runes': typeof RunesRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/create'
     | '/docs'
+    | '/marketplace'
     | '/roadmap'
     | '/robots.txt'
     | '/runes'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/create'
     | '/docs'
+    | '/marketplace'
     | '/roadmap'
     | '/robots.txt'
     | '/runes'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/create'
     | '/docs'
+    | '/marketplace'
     | '/roadmap'
     | '/robots.txt'
     | '/runes'
@@ -200,6 +212,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   CreateRoute: typeof CreateRoute
   DocsRoute: typeof DocsRoute
+  MarketplaceRoute: typeof MarketplaceRoute
   RoadmapRoute: typeof RoadmapRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   RunesRoute: typeof RunesRoute
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/roadmap'
       fullPath: '/roadmap'
       preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace': {
+      id: '/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof MarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -320,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   CreateRoute: CreateRoute,
   DocsRoute: DocsRoute,
+  MarketplaceRoute: MarketplaceRoute,
   RoadmapRoute: RoadmapRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   RunesRoute: RunesRoute,

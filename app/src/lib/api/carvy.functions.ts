@@ -138,6 +138,21 @@ export const getRune = createServerFn({ method: "GET" })
     };
   });
 
+/** Runes Marketplace: every Rune of this site that is etched on Bitcoin, with its Bitcoin-side supply and chain price. */
+export const getMarketplace = createServerFn({ method: "GET" }).handler(async () => {
+  const d = db();
+  const rows = await d
+    .prepare(
+      `SELECT r.id, r.ticker, r.rune_name, r.title, r.image_url, r.chain, r.quote, r.rune_ref, r.bridged, r.sold, r.v_sats, r.v_tokens, r.volume_sats, r.graduated, r.created_at,
+        COALESCE(e.status, '') AS etch_status
+       FROM runes r LEFT JOIN btc_etch e ON e.rune_id = r.id
+       WHERE r.hidden = 0 AND r.onchain = 1 AND r.rune_ref <> '' AND r.${S()}
+       ORDER BY r.bridged DESC, r.volume_sats DESC, r.created_at DESC LIMIT 200`,
+    )
+    .all<{ id: string; ticker: string; rune_name: string; title: string; image_url: string; chain: string; quote: string; rune_ref: string; bridged: number; sold: number; v_sats: number; v_tokens: number; volume_sats: number; graduated: number; created_at: number; etch_status: string }>();
+  return { prices: await getPrices(), runes: rows.results };
+});
+
 export const getVerify = createServerFn({ method: "GET" }).handler(async () => {
   await ensureSeed();
   await progressEtching();
