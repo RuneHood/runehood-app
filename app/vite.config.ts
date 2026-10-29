@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     resolve: {
-      alias: [{ find: /^@higgsfield-ai\/icons(\/.*)?$/, replacement: QUANTA_ICONS_SHIM }],
+      alias: [{ find: /^@higgsfield-ai\/icons(\/.*)?$/, replacement: QUANTA_ICONS_SHIM }, { find: /^buffer$/, replacement: new URL("./node_modules/buffer/index.js", import.meta.url).pathname }],
     },
     // The server bundle runs as a Cloudflare Worker — there is no node_modules
     // at runtime. Vite's default SSR build leaves npm deps as bare external
