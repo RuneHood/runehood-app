@@ -69,9 +69,45 @@ function sol(): SolProvider | null {
 export const hasEvm = () => !!evm();
 export const hasSol = () => !!sol();
 
+/** Phones have no browser extensions: wallets only inject inside their own in-app browser. */
+export const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+/** Deep links that reopen the current page inside a wallet's in-app browser (where the wallet is injected). */
+export function walletDeepLinks(kind: "evm" | "solana"): Array<{ name: string; url: string }> {
+  if (typeof window === "undefined") return [];
+  const url = window.location.href;
+  const ref = encodeURIComponent(window.location.origin);
+  const u = encodeURIComponent(url);
+  if (kind === "solana")
+    return [
+      { name: "Phantom", url: `https://phantom.app/ul/browse/${u}?ref=${ref}` },
+      { name: "Solflare", url: `https://solflare.com/ul/v1/browse/${u}?ref=${ref}` },
+      { name: "Backpack", url: `https://backpack.app/ul/v1/browse/${u}?ref=${ref}` },
+    ];
+  return [
+    { name: "MetaMask", url: `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, "")}` },
+    { name: "Coinbase Wallet", url: `https://go.cb-w.com/dapp?cb_url=${u}` },
+    { name: "Trust Wallet", url: `https://link.trustwallet.com/open_url?coin_id=60&url=${u}` },
+    { name: "Phantom", url: `https://phantom.app/ul/browse/${u}?ref=${ref}` },
+  ];
+}
+
+/** In-app browsers sometimes inject the provider a moment after load. */
+async function waitFor<T>(get: () => T | null, ms = 1500): Promise<T | null> {
+  const end = Date.now() + ms;
+  let v = get();
+  while (!v && Date.now() < end) {
+    await new Promise((r) => setTimeout(r, 100));
+    v = get();
+  }
+  return v;
+}
+
+export const NO_WALLET_MOBILE = "NO_WALLET_MOBILE";
+
 async function connectEvm(): Promise<{ address: string; sign: (m: string) => Promise<string> }> {
-  const p = evm();
-  if (!p) throw new Error("No EVM wallet found. Install MetaMask, Rabby or Coinbase Wallet.");
+  const p = await waitFor(evm);
+  if (!p) throw new Error(isMobile() ? NO_WALLET_MOBILE : "No EVM wallet found. Install MetaMask, Rabby or Coinbase Wallet.");
   const [account] = (await p.request({ method: "eth_requestAccounts" })) as string[];
   const address = account.toLowerCase();
   return {
@@ -84,8 +120,8 @@ async function connectEvm(): Promise<{ address: string; sign: (m: string) => Pro
 }
 
 async function connectSol(): Promise<{ address: string; sign: (m: string) => Promise<string> }> {
-  const p = sol();
-  if (!p) throw new Error("No Solana wallet found. Install Phantom, Solflare or Backpack.");
+  const p = await waitFor(sol);
+  if (!p) throw new Error(isMobile() ? NO_WALLET_MOBILE : "No Solana wallet found. Install Phantom, Solflare or Backpack.");
   const r = await p.connect();
   const pk = r?.publicKey ?? p.publicKey;
   if (!pk) throw new Error("Wallet did not share an address.");
