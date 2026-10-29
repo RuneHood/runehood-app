@@ -5,7 +5,7 @@ import { ConnectButton } from "./connect-button";
 import { XLogo } from "./icons";
 
 /** Set once the Runehood accounts exist; empty hides the links. */
-export const X_URL = "https://x.com/RuneOnHood";
+export const X_URL = "https://x.com/Runehood2";
 export const TG_URL = "https://t.me/RuneHood";
 export const GH_URL = "https://github.com/RuneHood";
 
