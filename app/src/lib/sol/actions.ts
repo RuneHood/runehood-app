@@ -25,14 +25,33 @@ async function libs() {
   return { web3, spl, dbc, BN, connection, client: new dbc.DynamicBondingCurveClient(connection, "confirmed") };
 }
 
-async function signSend(tx: import("@solana/web3.js").Transaction, owner: string, extra: import("@solana/web3.js").Keypair[] = []) {
+type AnySigner = { publicKey: import("@solana/web3.js").PublicKey; secretKey: Uint8Array };
+const CU_LIMIT = 600_000;
+const CU_PRICE = 50_000; // micro-lamports per CU
+
+/**
+ * Wallet-safe send (follows Phantom's guidance so its simulation does not flag the request):
+ * explicit compute budget, simulate first (no sig verify), the wallet signs FIRST with signTransaction,
+ * extra signers (e.g. a new mint keypair) sign afterwards, then submit through our RPC with preflight.
+ */
+async function signSend(tx: import("@solana/web3.js").Transaction, owner: string, extra: AnySigner[] = []) {
   const { connection, web3 } = await libs();
+  const CB = web3.ComputeBudgetProgram.programId.toBase58();
+  if (!tx.instructions.some((ix) => ix.programId.toBase58() === CB)) {
+    tx.instructions.unshift(web3.ComputeBudgetProgram.setComputeUnitLimit({ units: CU_LIMIT }), web3.ComputeBudgetProgram.setComputeUnitPrice({ microLamports: CU_PRICE }));
+  }
   tx.feePayer = new web3.PublicKey(owner);
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
-  if (extra.length) tx.partialSign(...extra);
+  tx.signatures = [];
+  const sim = await connection.simulateTransaction(new web3.VersionedTransaction(tx.compileMessage()), { sigVerify: false, replaceRecentBlockhash: true });
+  if (sim.value.err) {
+    const logs = (sim.value.logs ?? []).filter((l) => /error|failed|insufficient/i.test(l)).slice(-2).join(" | ");
+    throw new Error(`Transaction would fail: ${logs || JSON.stringify(sim.value.err)}`);
+  }
   const signed = await provider().signTransaction(tx);
-  const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, maxRetries: 5 });
+  if (extra.length) signed.partialSign(...(extra as import("@solana/web3.js").Signer[]));
+  const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 5 });
   try {
     await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
   } catch (e) {
@@ -209,6 +228,13 @@ async function raydiumFor(owner: string) {
   return { sdk, raydium, web3, BN, connection };
 }
 
+/** Send a Raydium SDK build result (single legacy transaction) through the wallet-safe path. */
+async function sendBuilt(built: unknown, owner: string): Promise<string> {
+  const b = built as { transaction: import("@solana/web3.js").Transaction; signers?: AnySigner[] };
+  const extra = (b.signers ?? []).filter((k) => k.publicKey.toBase58() !== owner);
+  return signSend(b.transaction, owner, extra);
+}
+
 /** Pool state of a LaunchLab pool (null when the pool is a Meteora pool). */
 async function launchLabState(pool: string) {
   const { web3, connection } = await libs();
@@ -226,7 +252,7 @@ async function launchRaydium(p: { owner: string; title: string; ticker: string; 
   const tier = p.taxBps >= 500 ? 150 : p.taxBps >= 300 ? 125 : p.taxBps >= 100 ? 100 : 75;
   const mintA = web3.Keypair.generate();
   const buy = p.initialBuySol ? toUnits(p.initialBuySol, 9) : 0n;
-  const { execute } = await raydium.launchpad.createLaunchpad({
+  const res = await raydium.launchpad.createLaunchpad({
     programId: sdk.LAUNCHPAD_PROGRAM,
     mintA: mintA.publicKey,
     decimals: 6,
@@ -241,9 +267,14 @@ async function launchRaydium(p: { owner: string; title: string; ticker: string; 
     slippage: new BN(500),
     createOnly: buy === 0n,
     extraSigners: [mintA],
+    computeBudgetConfig: { units: CU_LIMIT, microLamports: CU_PRICE },
   } as never);
-  const res = (await execute({ sendAndConfirm: true, sequentially: true })) as { txIds?: string[]; txId?: string };
-  for (const sig of res.txIds ?? (res.txId ? [res.txId] : [])) await recordSol({ data: { signature: sig } }).catch(() => {});
+  const built = res as unknown as { transactions: import("@solana/web3.js").Transaction[]; signers: AnySigner[][] };
+  for (let i = 0; i < built.transactions.length; i++) {
+    const own = (built.signers[i] ?? []).filter((k) => k.publicKey.toBase58() !== p.owner);
+    const sig = await signSend(built.transactions[i], p.owner, own.length ? own : i === 0 ? [mintA] : []);
+    await recordSol({ data: { signature: sig } }).catch(() => {});
+  }
   return mintA.publicKey.toBase58();
 }
 
@@ -269,19 +300,18 @@ async function tradeRaydium(p: { owner: string; pool: string; side: "buy" | "sel
   const base = { programId: sdk.LAUNCHPAD_PROGRAM, mintA: st.mintA, slippage: new BN(500), txVersion: sdk.TxVersion.LEGACY };
   const built =
     p.side === "buy"
-      ? await raydium.launchpad.buyToken({ ...base, buyAmount: new BN(toUnits(p.amount, 9).toString()) } as never)
-      : await raydium.launchpad.sellToken({ ...base, sellAmount: new BN(toUnits(p.amount, 6).toString()) } as never);
-  const res = (await built.execute({ sendAndConfirm: true })) as { txId: string };
-  await recordSol({ data: { signature: res.txId } }).catch(() => {});
-  return res.txId;
+      ? await raydium.launchpad.buyToken({ ...base, buyAmount: new BN(toUnits(p.amount, 9).toString()), computeBudgetConfig: { units: CU_LIMIT, microLamports: CU_PRICE } } as never)
+      : await raydium.launchpad.sellToken({ ...base, sellAmount: new BN(toUnits(p.amount, 6).toString()), computeBudgetConfig: { units: CU_LIMIT, microLamports: CU_PRICE } } as never);
+  const sig = await sendBuilt(built, p.owner);
+  await recordSol({ data: { signature: sig } }).catch(() => {});
+  return sig;
 }
 
 /** Creator claims their LaunchLab creator fees (curve + graduated pool). */
 export async function claimRaydiumCreatorFees(owner: string): Promise<string> {
   const { sdk, raydium, web3 } = await raydiumFor(owner);
   const built = await raydium.launchpad.claimCreatorFee({ programId: sdk.LAUNCHPAD_PROGRAM, mintB: new web3.PublicKey(WSOL), txVersion: sdk.TxVersion.LEGACY } as never);
-  const res = (await built.execute({ sendAndConfirm: true })) as { txId: string };
-  return res.txId;
+  return sendBuilt(built, owner);
 }
 
 /** Carvy fee wallet: claim LaunchLab platform fees of every Carvy platform. */
@@ -291,7 +321,7 @@ export async function claimRaydiumPlatformFees(owner: string): Promise<string[]>
   for (const platformId of Object.values(RAYDIUM_PLATFORMS)) {
     try {
       const built = await raydium.launchpad.claimVaultPlatformFee({ programId: sdk.LAUNCHPAD_PROGRAM, platformId: new web3.PublicKey(platformId), mintB: new web3.PublicKey(WSOL), txVersion: sdk.TxVersion.LEGACY } as never);
-      const res = (await built.execute({ sendAndConfirm: true })) as { txId: string };
+      const res = { txId: await sendBuilt(built, owner) };
       out.push(res.txId);
     } catch {
       /* nothing to claim on this platform */
