@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { GH_URL, TG_URL, X_URL } from "./site-header";
+import { CopyCa } from "./rune-token";
 
 export function SiteFooter() {
   return (
@@ -12,6 +13,10 @@ export function SiteFooter() {
           {TG_URL && (<a href={TG_URL} target="_blank" rel="noreferrer" className="mt-6 rounded-full border px-4 py-1.5 text-sm c-rose hover:underline" style={{ background: "var(--c-surface)" }}>
             Join Telegram
           </a>)}
+          <div className="mt-4 flex flex-col items-center gap-1 text-xs c-muted">
+            <span className="c-dim uppercase tracking-wider text-[10px]">$RUNE contract · Robinhood Chain</span>
+            <CopyCa className="break-all" />
+          </div>
         </div>
         <div className="mt-14 grid gap-8 border-t pt-8 text-sm sm:grid-cols-[1.2fr_2fr_auto]" style={{ borderColor: "var(--c-line)" }}>
           <div>

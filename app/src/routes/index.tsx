@@ -5,6 +5,8 @@ import { getHome } from "../lib/api/carvy.functions";
 import { CHAINS, STOCKS, STOCK_INFO, fmtBtc, fmtNum, fmtUsd, timeAgo, type Stock } from "../lib/carvy";
 import { ArrowRight, ChainIcon, QuoteIcon, Shield } from "../components/carvy/icons";
 import { RuneCard } from "../components/carvy/rune-card";
+import { BurnBar, CopyCa, RuneStats, useRuneToken } from "../components/carvy/rune-token";
+import { RUNE_TOKEN } from "../lib/rune-token";
 
 export const Route = createFileRoute("/")({
   loader: () => getHome(),
@@ -107,18 +109,7 @@ function Home() {
       <Journey />
 
       {/* $RUNE */}
-      <section className="mx-auto mt-24 max-w-7xl px-4 sm:px-6">
-        <div className="c-card relative grid items-center gap-8 overflow-hidden p-8 sm:p-10 lg:grid-cols-[auto_1fr_auto]">
-          <div className="rh-grid absolute inset-0" />
-          <img src="/assets/logo.webp" alt="" className="relative h-20 w-20" />
-          <div className="relative">
-            <span className="c-eyebrow">Platform token</span>
-            <h3 className="font-display mt-2 text-3xl font-bold">$RUNE</h3>
-            <p className="c-muted mt-2 max-w-xl text-sm">The Runehood token lives on one chain only: Robinhood Chain, listed through pons with liquidity locked from block one. Runes you launch can still trade on any of the five chains.</p>
-          </div>
-          <span className="relative rounded-lg border px-4 py-2 font-mono text-xs c-rose" style={{ borderColor: "var(--c-line-2)" }}>Listing soon on pons</span>
-        </div>
-      </section>
+      <RuneSection />
 
       {/* Monumental */}
       <section className="mx-auto mt-28 max-w-7xl px-4 sm:px-6">
@@ -340,6 +331,36 @@ function StockPairs({ stocks }: { stocks?: Partial<Record<Stock, number>> }) {
                 <div className="c-dim text-[10px]">{fmtUsd(stocks?.[s] ?? STOCK_INFO[s].usd)}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RuneSection() {
+  const s = useRuneToken();
+  return (
+    <section className="mx-auto mt-24 max-w-7xl px-4 sm:px-6">
+      <div className="c-card relative overflow-hidden p-8 sm:p-10">
+        <div className="rh-grid absolute inset-0" />
+        <div className="relative grid gap-8 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+          <div className="flex items-start gap-5">
+            <img src="/assets/logo.webp" alt="" className="h-20 w-20 shrink-0" />
+            <div>
+              <span className="c-eyebrow"><ChainIcon chain="robinhood" size={14} /> Platform token · live</span>
+              <h3 className="font-display mt-2 text-3xl font-bold">$RUNE</h3>
+              <p className="c-muted mt-2 max-w-md text-sm">The Runehood token lives on one chain only: Robinhood Chain, launched on pons with liquidity locked from block one. Runes you launch can still trade on any of the five chains.</p>
+              <div className="mt-4 text-xs c-muted"><span className="c-dim mr-2 uppercase tracking-wider text-[10px]">CA</span><CopyCa short className="text-xs" /></div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a href={RUNE_TOKEN.buyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-black" style={{ background: "var(--c-grad)" }}>Buy on pons <ArrowRight size={14} /></a>
+                <Link to="/token" className="rounded-xl border px-5 py-2.5 text-sm c-muted hover:text-white" style={{ background: "var(--c-surface)" }}>Token details</Link>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <RuneStats s={s} />
+            <div className="c-card-2 p-3"><BurnBar s={s} /></div>
           </div>
         </div>
       </div>

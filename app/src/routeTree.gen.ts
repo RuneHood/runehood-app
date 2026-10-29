@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as TokenRouteImport } from './routes/token'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RunesRouteImport } from './routes/runes'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -28,6 +29,11 @@ import { Route as ApiAdminRunRouteImport } from './routes/api.admin.run'
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TokenRoute = TokenRouteImport.update({
+  id: '/token',
+  path: '/token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/runes': typeof RunesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/token': typeof TokenRoute
   '/verify': typeof VerifyRoute
   '/api/upload': typeof ApiUploadRoute
   '/media/$': typeof MediaSplatRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/runes': typeof RunesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/token': typeof TokenRoute
   '/verify': typeof VerifyRoute
   '/api/upload': typeof ApiUploadRoute
   '/media/$': typeof MediaSplatRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/runes': typeof RunesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/token': typeof TokenRoute
   '/verify': typeof VerifyRoute
   '/api/upload': typeof ApiUploadRoute
   '/media/$': typeof MediaSplatRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/runes'
     | '/sitemap.xml'
+    | '/token'
     | '/verify'
     | '/api/upload'
     | '/media/$'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/runes'
     | '/sitemap.xml'
+    | '/token'
     | '/verify'
     | '/api/upload'
     | '/media/$'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/runes'
     | '/sitemap.xml'
+    | '/token'
     | '/verify'
     | '/api/upload'
     | '/media/$'
@@ -217,6 +229,7 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   RunesRoute: typeof RunesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TokenRoute: typeof TokenRoute
   VerifyRoute: typeof VerifyRoute
   ApiUploadRoute: typeof ApiUploadRoute
   MediaSplatRoute: typeof MediaSplatRoute
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/token': {
+      id: '/token'
+      path: '/token'
+      fullPath: '/token'
+      preLoaderRoute: typeof TokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -345,6 +365,7 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   RunesRoute: RunesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TokenRoute: TokenRoute,
   VerifyRoute: VerifyRoute,
   ApiUploadRoute: ApiUploadRoute,
   MediaSplatRoute: MediaSplatRoute,

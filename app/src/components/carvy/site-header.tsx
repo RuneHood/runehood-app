@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 
 import { ConnectButton } from "./connect-button";
 import { XLogo } from "./icons";
+import { CopyCa } from "./rune-token";
+import { RUNE_TOKEN } from "../../lib/rune-token";
 
 /** Set once the Runehood accounts exist; empty hides the links. */
 export const X_URL = "https://x.com/runehoodcoin";
@@ -10,6 +12,7 @@ export const TG_URL = "https://t.me/RuneHood";
 export const GH_URL = "https://github.com/RuneHood";
 
 const NAV = [
+  { to: "/token", label: "$RUNE" },
   { to: "/runes", label: "Explore" },
   { to: "/create", label: "Launch" },
   { to: "/verify", label: "Proof" },
@@ -23,7 +26,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b backdrop-blur-xl" style={{ background: "rgba(6,10,8,.78)", borderColor: "var(--c-line)" }}>
       <div className="border-b px-4 py-1.5 text-center text-[12px]" style={{ borderColor: "var(--c-line)", background: "linear-gradient(90deg, rgba(11,138,74,.25), rgba(47,210,122,.08), rgba(11,138,74,.25))", color: "#bff5d6" }}>
-        <>New: pair your Rune with <b className="font-semibold">TSLA, NVDA, SPY</b> and 12 more Stock Tokens on Robinhood Chain</>
+        <span className="inline-flex flex-wrap items-center justify-center gap-x-2"><b className="font-semibold">$RUNE is live on Robinhood Chain</b><span className="opacity-60">·</span><span>CA</span><CopyCa short className="text-[12px]" /><span className="opacity-60">·</span><a href={RUNE_TOKEN.buyUrl} target="_blank" rel="noreferrer" className="font-semibold underline">Buy on pons</a></span>
       </div>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2.5">

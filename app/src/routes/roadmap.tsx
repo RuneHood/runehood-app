@@ -71,7 +71,7 @@ const PHASES: Phase[] = [
       { t: "Fair-mint Runes launcher", d: "Etch open-mint Runes directly on Bitcoin with caps and start/end blocks, no EVM side needed." },
       { t: "Logo inscriptions gallery", d: "Every Runehood Rune logo inscribed on Bitcoin, browsable in one place." },
       { t: "Runehood API and SDK", d: "Public endpoints for Runes data, bridges and launches so bots and wallets can build on Runehood." },
-      { t: "$RUNE on Robinhood Chain", d: "Platform token listed through pons, single chain, liquidity locked." },
+      { t: "$RUNE live on Robinhood Chain", d: "Platform token launched on pons, single chain, liquidity locked. CA 0x437d083c57bb31573aa383f9602ec5a86519b9d4", done: true },
       { t: "More chains", d: "New EVM chains added when liquidity and users are there, same one-click flow." },
     ],
   },

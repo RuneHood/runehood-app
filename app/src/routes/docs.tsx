@@ -1,3 +1,4 @@
+import { CopyCa } from "../components/carvy/rune-token";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { TimingTable } from "../components/carvy/progress";
 
@@ -15,6 +16,7 @@ const TOC = [
   { id: "curve", t: "Bonding curve" },
   { id: "fees", t: "Fees" },
   { id: "buyback", t: "Buyback and burn" },
+  { id: "token", t: "$RUNE token" },
   { id: "bridge", t: "Bridge to Bitcoin" },
   { id: "testnet", t: "Testnet preview" },
 ];
@@ -72,6 +74,11 @@ function Docs() {
         </Sec>
         
 
+        <Sec id="token" title="$RUNE token">
+          <p>$RUNE is the Runehood platform token. It lives only on Robinhood Chain and was launched on pons: a fixed supply of 1,000,000,000, a Uniswap V4 pool against ETH with liquidity locked at launch.</p>
+          <p className="mt-3">Contract: <CopyCa className="break-all text-sm" /></p>
+          <p className="mt-3">Burned supply is shown live on the <a href="/token" className="c-rose hover:underline">$RUNE page</a> (tokens held by the dead and zero addresses). Always check the contract address before buying; names and tickers can be copied.</p>
+        </Sec>
         <Sec id="bridge" title="Bridge to Bitcoin">
           <div className="c-card-2 mb-4 p-4">
             <div className="c-dim mb-2 text-[10px] uppercase tracking-wider">How long things take</div>
