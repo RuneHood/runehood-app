@@ -163,7 +163,12 @@ async function applyLog(chain: ChainId, d: Deployment, log: Log, prices: Prices)
     const fee = Number(a.fee as bigint) / 10 ** dec;
     const feeSats = quoteToSats(q, fee, prices);
     const isBuy = Boolean(a.isBuy);
-    const trader = String(a.trader).toLowerCase();
+    let trader = String(a.trader).toLowerCase();
+    // trades routed through RunehoodZap (pay with ETH) belong to the wallet that sent the tx
+    if (d.zap && trader === d.zap.toLowerCase()) {
+      const tx = await rpcCall<{ from: string } | null>(d, "eth_getTransactionByHash", [log.transactionHash]).catch(() => null);
+      if (tx?.from) trader = tx.from.toLowerCase();
+    }
     const t = await logTime(d, log);
     await D1.batch([
       D1.prepare(

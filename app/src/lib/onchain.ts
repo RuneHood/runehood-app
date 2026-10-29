@@ -17,7 +17,10 @@ export type Deployment = {
   legacy: { launchpad: string; bridge: string; startBlock: number }[]; // older launchpads still indexed
   quotes: Partial<Record<Quote, { address: string; decimals: number }>>;
   /** Robinhood Stock Tokens enabled as pairs (configureQuote on the launchpad); v0 = virtual quote reserve (wei). */
-  stockQuotes?: Partial<Record<Quote, { address: string; decimals: number; v0: string }>>;
+  stockQuotes?: Partial<Record<Quote, { address: string; decimals: number; v0: string; ethPath?: PoolKeyCfg[] }>>;
+  /** RunehoodZap: buy/sell stock-paired Runes with native ETH in one tx (Uniswap V4 route + curve). */
+  zap?: string;
+  v4Quoter?: string;
   native?: string; // native gas token symbol (default ETH)
   dex?: "pancake"; // graduation DEX of the current launchpad (default Uniswap V4)
 };
@@ -69,21 +72,23 @@ export const DEPLOYMENTS: Partial<Record<ChainId, Deployment>> = {
     startBlock: 99202367,
     legacy: [{ launchpad: "0x8d0CdBcb1Fd782b9daa2Cbd29149b6ae29b1D7D8", bridge: "0xBC6958c616aC2415e22F929caaa355F779E7218E", startBlock: 99187798 }],
     quotes: { ETH: { address: "0x0000000000000000000000000000000000000000", decimals: 18 } },
+    zap: "0xdF14e44557a6DBF4f7856a952872B30aB7541FfD",
+    v4Quoter: "0x8dc178efb8111bb0973dd9d722ebeff267c98f94",
     stockQuotes: {
-      TSLA: { address: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d", decimals: 18, v0: "5831441922563418112" },
-      NVDA: { address: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", decimals: 18, v0: "10941817806448908288" },
-      AAPL: { address: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", decimals: 18, v0: "6855262628488729600" },
-      SPY: { address: "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C", decimals: 18, v0: "3048697959582146560" },
-      QQQ: { address: "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68", decimals: 18, v0: "3248791533604700160" },
+      TSLA: { address: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d", decimals: 18, v0: "5831441922563418112", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },
+      NVDA: { address: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", decimals: 18, v0: "10941817806448908288", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }] },
+      AAPL: { address: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", decimals: 18, v0: "6855262628488729600", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },
+      SPY: { address: "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C", decimals: 18, v0: "3048697959582146560", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 100, tickSpacing: 1, hooks: "0x0000000000000000000000000000000000000000" }] },
+      QQQ: { address: "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68", decimals: 18, v0: "3248791533604700160", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68", fee: 10000, tickSpacing: 200, hooks: "0x0000000000000000000000000000000000000000" }] },
       MSTR: { address: "0xec262a75e413fAfD0dF80480274532C79D42da09", decimals: 18, v0: "16241461231235366912" },
-      COIN: { address: "0x6330D8C3178a418788dF01a47479c0ce7CCF450b", decimals: 18, v0: "14524200997598375936" },
-      GOOGL: { address: "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3", decimals: 18, v0: "7241739709078064128" },
-      AMZN: { address: "0x12f190a9F9d7D37a250758b26824B97CE941bF54", decimals: 18, v0: "9262065580208128000" },
-      META: { address: "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35", decimals: 18, v0: "3849264150297819648" },
-      MSFT: { address: "0xe93237C50D904957Cf27E7B1133b510C669c2e74", decimals: 18, v0: "4433850672881207296" },
-      PLTR: { address: "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A", decimals: 18, v0: "11982853223593963520" },
-      AMD: { address: "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC", decimals: 18, v0: "4076294913672421888" },
-      GME: { address: "0x1b0E319c6A659F002271B69dB8A7df2F911c153E", decimals: 18, v0: "101074994643239763968" },
+      COIN: { address: "0x6330D8C3178a418788dF01a47479c0ce7CCF450b", decimals: 18, v0: "14524200997598375936", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0x6330D8C3178a418788dF01a47479c0ce7CCF450b", fee: 10000, tickSpacing: 200, hooks: "0x0000000000000000000000000000000000000000" }] },
+      GOOGL: { address: "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3", decimals: 18, v0: "7241739709078064128", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3", fee: 10000, tickSpacing: 200, hooks: "0x0000000000000000000000000000000000000000" }] },
+      AMZN: { address: "0x12f190a9F9d7D37a250758b26824B97CE941bF54", decimals: 18, v0: "9262065580208128000", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x12f190a9F9d7D37a250758b26824B97CE941bF54", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },
+      META: { address: "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35", decimals: 18, v0: "3849264150297819648", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },
+      MSFT: { address: "0xe93237C50D904957Cf27E7B1133b510C669c2e74", decimals: 18, v0: "4433850672881207296", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0xe93237C50D904957Cf27E7B1133b510C669c2e74", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },
+      PLTR: { address: "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A", decimals: 18, v0: "11982853223593963520", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A", fee: 10000, tickSpacing: 200, hooks: "0x0000000000000000000000000000000000000000" }] },
+      AMD: { address: "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC", decimals: 18, v0: "4076294913672421888", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC", fee: 10000, tickSpacing: 200, hooks: "0x0000000000000000000000000000000000000000" }] },
+      GME: { address: "0x1b0E319c6A659F002271B69dB8A7df2F911c153E", decimals: 18, v0: "101074994643239763968", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x1b0E319c6A659F002271B69dB8A7df2F911c153E", fee: 10000, tickSpacing: 200, hooks: "0x0000000000000000000000000000000000000000" }] },
       CRCL: { address: "0xdF0992E440dD0be65BD8439b609d6D4366bf1CB5", decimals: 18, v0: "28856487428886032384" },
     },
   },
@@ -115,6 +120,8 @@ export const liveDeployment = (chain: string): Deployment | null => {
   const d = DEPLOYMENTS[chain as ChainId];
   return d && d.launchpad ? d : null;
 };
+
+export type PoolKeyCfg = { currency0: string; currency1: string; fee: number; tickSpacing: number; hooks: string };
 
 export const quoteByAddress = (d: Deployment, addr: string): { symbol: Quote; decimals: number; v0?: string } | null => {
   for (const [symbol, q] of [...Object.entries(d.quotes), ...Object.entries(d.stockQuotes ?? {})]) if (q && q.address.toLowerCase() === addr.toLowerCase()) return { symbol: symbol as Quote, decimals: q.decimals, v0: (q as { v0?: string }).v0 };

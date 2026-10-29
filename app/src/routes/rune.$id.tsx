@@ -31,7 +31,7 @@ import { Badge, BridgeBar } from "../components/carvy/rune-card";
 import { Candles } from "../components/carvy/candles";
 import { ConnectButton } from "../components/carvy/connect-button";
 import { dexFor, liveDeployment, tokenBalance } from "../lib/onchain";
-import { migrateOnchain, tradeOnchain } from "../lib/onchain-actions";
+import { canPayWithEth, migrateOnchain, tradeOnchain, zapEstimate, zapTradeOnchain } from "../lib/onchain-actions";
 import { BitcoinPanel } from "../components/carvy/bitcoin-panel";
 import { SolTradeBox } from "../components/carvy/sol-trade-box";
 
@@ -239,10 +239,14 @@ function TradeBox({ rune, prices, account, holding, onDone }: { rune: RuneRow; p
   const [market, setMarket] = useState<"chain" | "btc">("chain");
 
   const live = rune.onchain ? liveDeployment(rune.chain) : null;
+  const ethOk = !!live && canPayWithEth(rune.chain, rune.quote);
+  const [payEth, setPayEth] = useState(ethOk);
+  useEffect(() => setPayEth(ethOk), [ethOk]);
+  const unit = payEth ? "ETH" : quote;
   const [chainBal, setChainBal] = useState<{ q: number; t: number } | null>(null);
   useEffect(() => {
     if (!live || !session || session.kind !== "evm") return setChainBal(null);
-    const qa = live.quotes[quote];
+    const qa = payEth ? { address: "0x0000000000000000000000000000000000000000", decimals: 18 } : (live.quotes[quote] ?? live.stockQuotes?.[quote]);
     if (!qa) return;
     let off = false;
     Promise.all([tokenBalance(live, qa.address, session.address), tokenBalance(live, rune.id, session.address)])
@@ -251,11 +255,26 @@ function TradeBox({ rune, prices, account, holding, onDone }: { rune: RuneRow; p
     return () => {
       off = true;
     };
-  }, [live, session, quote, rune.id, msg]);
+  }, [live, session, quote, rune.id, msg, payEth]);
   const qbal = live ? (chainBal?.q ?? 0) : (account?.balances.find((b) => b.chain === rune.chain && b.asset === quote)?.amount ?? 0);
   const tokenBal = live ? (chainBal?.t ?? 0) : holding;
   const n = Number(amount) || 0;
   const wrongWallet = session && session.kind !== chain.kind;
+
+  const [zapEst, setZapEst] = useState<string | null>(null);
+  useEffect(() => {
+    if (!payEth || !live || n <= 0) return setZapEst(null);
+    let off = false;
+    const t = setTimeout(() => {
+      zapEstimate({ chain: rune.chain, token: rune.id, quote, side, amount, launchpad: rune.launchpad })
+        .then((v) => !off && setZapEst(side === "buy" ? `${fmtNum(v, 2)} ${rune.ticker}` : `${fmtAmount(v)} ETH`))
+        .catch(() => !off && setZapEst(null));
+    }, 350);
+    return () => {
+      off = true;
+      clearTimeout(t);
+    };
+  }, [payEth, live, n, side, amount, quote, rune]);
 
   const est = useMemo(() => {
     if (n <= 0) return null;
@@ -272,6 +291,13 @@ function TradeBox({ rune, prices, account, holding, onDone }: { rune: RuneRow; p
     setBusy(true);
     setMsg(null);
     try {
+      if (live && payEth) {
+        const r = await zapTradeOnchain({ from: session.address, chain: rune.chain, token: rune.id, side, quote, amount, launchpad: rune.launchpad });
+        setMsg({ ok: true, text: side === "buy" ? `Bought about ${fmtNum(r.expected, 2)} ${rune.ticker} with ETH · tx ${r.hash.slice(0, 10)}…` : `Sold for about ${fmtAmount(r.expected)} ETH · tx ${r.hash.slice(0, 10)}…` });
+        setAmount("");
+        await onDone();
+        return;
+      }
       if (live) {
         const r = await tradeOnchain({ from: session.address, chain: rune.chain, token: rune.id, side, quote, amount, launchpad: rune.launchpad });
         setMsg({ ok: true, text: side === "buy" ? `Bought about ${fmtNum(r.expected, 2)} ${rune.ticker} · tx ${r.hash.slice(0, 10)}…` : `Sold for about ${fmtAmount(r.expected)} ${quote} · tx ${r.hash.slice(0, 10)}…` });
@@ -290,7 +316,7 @@ function TradeBox({ rune, prices, account, holding, onDone }: { rune: RuneRow; p
     }
   };
 
-  const quick = side === "buy" ? QUOTE_INFO[quote].quick.map(String) : ["25", "50", "100"];
+  const quick = side === "buy" ? (payEth ? ["0.01", "0.05", "0.1"] : QUOTE_INFO[quote].quick.map(String)) : ["25", "50", "100"];
 
   if (live && rune.graduated) {
     const dex = dexFor(rune.chain, rune.launchpad, rune.id, rune.quote_address);
@@ -378,15 +404,20 @@ function TradeBox({ rune, prices, account, holding, onDone }: { rune: RuneRow; p
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs">
             <span className="c-muted">{side === "buy" ? "Pay with" : "Receive in"}</span>
-            {(live ? (Object.keys(live.quotes) as Quote[]).filter((q) => q === rune.quote) : chain.quotes).map((q) => (
-              <button key={q} onClick={() => setQuote(q)} className={`flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold ${quote === q ? "text-white" : "c-muted"}`} style={quote === q ? { background: "rgba(47,210,122,.15)", borderColor: "var(--c-ruby)" } : { background: "var(--c-bg)" }}>
+            {ethOk && (
+              <button onClick={() => { setPayEth(true); setAmount(""); }} className={`flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold ${payEth ? "text-white" : "c-muted"}`} style={payEth ? { background: "rgba(47,210,122,.15)", borderColor: "var(--c-ruby)" } : { background: "var(--c-bg)" }}>
+                <QuoteIcon quote="ETH" size={13} /> ETH
+              </button>
+            )}
+            {(live ? [rune.quote] : chain.quotes).map((q) => (
+              <button key={q} onClick={() => { setQuote(q); setPayEth(false); setAmount(""); }} className={`flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold ${quote === q && !payEth ? "text-white" : "c-muted"}`} style={quote === q && !payEth ? { background: "rgba(47,210,122,.15)", borderColor: "var(--c-ruby)" } : { background: "var(--c-bg)" }}>
                 <QuoteIcon quote={q} size={13} /> {q}
               </button>
             ))}
           </div>
           <div className="mt-3 flex items-center rounded-xl border px-4 py-3" style={{ background: "var(--c-bg)", borderColor: "var(--c-line-2)" }}>
             <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="0.0" className="font-display w-full bg-transparent text-2xl outline-none placeholder:text-[var(--c-dim)]" />
-            <span className="c-muted shrink-0 text-sm font-semibold">{side === "buy" ? quote : rune.ticker}</span>
+            <span className="c-muted shrink-0 text-sm font-semibold">{side === "buy" ? unit : rune.ticker}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs">
             <div className="flex gap-1.5">
@@ -396,13 +427,13 @@ function TradeBox({ rune, prices, account, holding, onDone }: { rune: RuneRow; p
                 </button>
               ))}
             </div>
-            {session && <span className="c-dim">Bal: {side === "buy" ? `${fmtAmount(qbal)} ${quote}` : `${fmtNum(tokenBal, 1)} ${rune.ticker}`}</span>}
+            {session && <span className="c-dim">Bal: {side === "buy" ? `${fmtAmount(qbal)} ${unit}` : `${fmtNum(tokenBal, 1)} ${rune.ticker}`}</span>}
           </div>
           <div className="mt-4 flex justify-between text-sm">
             <span className="c-muted">You receive</span>
-            <span className="font-semibold">{est ?? "—"}</span>
+            <span className="font-semibold">{payEth ? (zapEst ?? (n > 0 ? "…" : "—")) : (est ?? "—")}</span>
           </div>
-          {live && <p className="c-dim mt-1 text-[11px]">On-chain on {chain.name}. Max 5% slippage.</p>}
+          {live && <p className="c-dim mt-1 text-[11px]">{payEth ? `ETH is swapped to ${quote} on Uniswap V4 and the curve is bought in one transaction. Max 5% slippage.` : `On-chain on ${chain.name}. Max 5% slippage.`}</p>}
           {live && (rune.buy_tax || rune.sell_tax) ? <p className="c-dim mt-1 text-[11px]">Creator tax {(rune.buy_tax ?? 0) / 100}% buy · {(rune.sell_tax ?? 0) / 100}% sell, also after graduation.</p> : null}
           <p className="c-dim mt-1 text-[11px]">Trading fee {(TRADE_FEE * 100).toFixed(0)}%: half to the creator ({rune.fee_mode}), half to the platform.</p>
           <div className="mt-4">
