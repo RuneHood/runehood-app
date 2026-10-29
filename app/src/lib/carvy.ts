@@ -22,7 +22,7 @@ export const STOCK_INFO: Record<Stock, { name: string; usd: number }> = {
   GME: { name: "GameStop", usd: 23.34 },
   CRCL: { name: "Circle Internet Group", usd: 81.73 },
 };
-export type Quote = "ETH" | "WBTC" | "cbBTC" | "USDC" | "SOL" | "BNB" | "BTCB" | "USDT" | Stock;
+export type Quote = "ETH" | "WBTC" | "cbBTC" | "USDC" | "SOL" | "BNB" | "BTCB" | "USDT" | "RUNE" | Stock;
 
 export type ChainInfo = {
   id: ChainId;
@@ -55,6 +55,7 @@ export const QUOTE_INFO: Record<Quote, { label: string; color: string; faucet: n
   BNB: { label: "BNB", color: "#F3BA2F", faucet: 0, quick: [0.05, 0.1, 0.5] },
   BTCB: { label: "BTCB", color: "#F2A541", faucet: 0, quick: [0.0005, 0.002, 0.005] },
   USDT: { label: "USDT", color: "#26A17B", faucet: 0, quick: [25, 100, 500] },
+  RUNE: { label: "$RUNE", color: "#2fd27a", faucet: 0, quick: [100_000, 500_000, 1_000_000] },
   ...(Object.fromEntries(STOCKS.map((s) => [s, { label: s, color: "#3DDC84", faucet: 0, quick: STOCK_INFO[s].usd < 60 ? [1, 5, 20] : STOCK_INFO[s].usd < 250 ? [0.25, 1, 3] : [0.1, 0.5, 1] }])) as Record<Stock, { label: string; color: string; faucet: number; quick: number[] }>),
 };
 
@@ -185,9 +186,9 @@ export type RuneRow = {
   migrated?: number;
 };
 
-export type Prices = { BTC: number; ETH: number; SOL: number; BNB?: number; stocks?: Partial<Record<Stock, number>>; updated: number };
+export type Prices = { BTC: number; ETH: number; SOL: number; BNB?: number; RUNE?: number; stocks?: Partial<Record<Stock, number>>; updated: number };
 
-export const usdPerQuote = (q: Quote, p: Prices) => isStock(q) ? (p.stocks?.[q] ?? STOCK_INFO[q].usd) : (q === "ETH" ? p.ETH : q === "SOL" ? p.SOL : q === "BNB" ? (p.BNB ?? 650) : q === "USDC" || q === "USDT" ? 1 : p.BTC);
+export const usdPerQuote = (q: Quote, p: Prices) => q === "RUNE" ? (p.RUNE ?? 0.00007) : isStock(q) ? (p.stocks?.[q] ?? STOCK_INFO[q].usd) : (q === "ETH" ? p.ETH : q === "SOL" ? p.SOL : q === "BNB" ? (p.BNB ?? 650) : q === "USDC" || q === "USDT" ? 1 : p.BTC);
 export const quoteToSats = (q: Quote, amount: number, p: Prices) => (amount * usdPerQuote(q, p) * SATS) / p.BTC;
 export const satsToQuote = (q: Quote, sats: number, p: Prices) => (sats * p.BTC) / SATS / usdPerQuote(q, p);
 export const satsToUsd = (sats: number, p: Prices) => (sats / SATS) * p.BTC;

@@ -66,13 +66,32 @@ async function stockPrices(): Promise<Partial<Record<Stock, number>> | undefined
   }
 }
 
+/** $RUNE price in ETH from its Uniswap V4 pool (ETH = currency0, RUNE = currency1). */
+async function runeEthPrice(): Promise<number | undefined> {
+  try {
+    const { DEPLOYMENTS, rpcCall } = await import("./onchain");
+    const { RUNE_TOKEN } = await import("./rune-token");
+    const { keccak256, encodePacked, encodeFunctionData, parseAbi } = await import("viem");
+    const slot = keccak256(encodePacked(["bytes32", "uint256"], [RUNE_TOKEN.poolId as `0x${string}`, 6n]));
+    const data = encodeFunctionData({ abi: parseAbi(["function extsload(bytes32) view returns (bytes32)"]), functionName: "extsload", args: [slot] });
+    const raw = await rpcCall<string>(DEPLOYMENTS.robinhood!, "eth_call", [{ to: "0x8366a39CC670B4001A1121B8F6A443A643e40951", data }, "latest"]);
+    const sq = Number(BigInt(raw) & ((1n << 160n) - 1n)) / 2 ** 96;
+    return sq > 0 ? 1 / (sq * sq) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getPrices(): Promise<Prices> {
   const d = db();
   const row = await d.prepare("SELECT v, updated_at FROM cache WHERE k = 'prices'").first<{ v: string; updated_at: number }>();
   if (row && Date.now() - row.updated_at < 60_000) return JSON.parse(row.v) as Prices;
   const stocksP = stockPrices();
+  const runeP = runeEthPrice();
   const save = async (p: Prices) => {
     p.stocks = (await stocksP) ?? (row ? (JSON.parse(row.v) as Prices).stocks : undefined);
+    const re = await runeP;
+    p.RUNE = re ? re * p.ETH : row ? (JSON.parse(row.v) as Prices).RUNE : undefined;
     await d.prepare("INSERT INTO cache (k, v, updated_at) VALUES ('prices', ?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = excluded.updated_at").bind(JSON.stringify(p), Date.now()).run();
     return p;
   };

@@ -77,6 +77,7 @@ function Docs() {
         <Sec id="token" title="$RUNE token">
           <p>$RUNE is the Runehood platform token. It lives only on Robinhood Chain and was launched on pons: a fixed supply of 1,000,000,000, a Uniswap V4 pool against ETH with liquidity locked at launch.</p>
           <p className="mt-3">Contract: <CopyCa className="break-all text-sm" /></p>
+          <p className="mt-3">On Robinhood Chain a Rune can launch paired with $RUNE. Buyers pay in ETH (swapped to $RUNE in the same transaction) or in $RUNE; the curve raises $RUNE and at graduation the Rune gets a locked Uniswap V4 pool against $RUNE. Creator fees and tax are paid in $RUNE.</p>
           <p className="mt-3">Burned supply is shown live on the <a href="/token" className="c-rose hover:underline">$RUNE page</a> (tokens held by the dead and zero addresses). Always check the contract address before buying; names and tickers can be copied.</p>
         </Sec>
         <Sec id="bridge" title="Bridge to Bitcoin">

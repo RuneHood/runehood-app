@@ -16,7 +16,7 @@ export type Deployment = {
   startBlock: number;
   legacy: { launchpad: string; bridge: string; startBlock: number }[]; // older launchpads still indexed
   quotes: Partial<Record<Quote, { address: string; decimals: number }>>;
-  /** Robinhood Stock Tokens enabled as pairs (configureQuote on the launchpad); v0 = virtual quote reserve (wei). */
+  /** ERC-20 pairs with an ETH route: $RUNE and Robinhood Stock Tokens (configureQuote on the launchpad); v0 = virtual quote reserve (wei). */
   stockQuotes?: Partial<Record<Quote, { address: string; decimals: number; v0: string; ethPath?: PoolKeyCfg[] }>>;
   /** RunehoodZap: buy/sell stock-paired Runes with native ETH in one tx (Uniswap V4 route + curve). */
   zap?: string;
@@ -75,6 +75,7 @@ export const DEPLOYMENTS: Partial<Record<ChainId, Deployment>> = {
     zap: "0xdF14e44557a6DBF4f7856a952872B30aB7541FfD",
     v4Quoter: "0x8dc178efb8111bb0973dd9d722ebeff267c98f94",
     stockQuotes: {
+      RUNE: { address: "0x437d083c57BB31573Aa383f9602ec5a86519b9d4", decimals: 18, v0: "15000000000000000000000000", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x437d083c57BB31573Aa383f9602ec5a86519b9d4", fee: 0, tickSpacing: 200, hooks: "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044" }] },
       TSLA: { address: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d", decimals: 18, v0: "5831441922563418112", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },
       NVDA: { address: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", decimals: 18, v0: "10941817806448908288", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }] },
       AAPL: { address: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", decimals: 18, v0: "6855262628488729600", ethPath: [{ currency0: "0x0000000000000000000000000000000000000000", currency1: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" }, { currency0: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", currency1: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", fee: 3000, tickSpacing: 60, hooks: "0x0000000000000000000000000000000000000000" }] },

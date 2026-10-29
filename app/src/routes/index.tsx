@@ -350,10 +350,12 @@ function RuneSection() {
             <div>
               <span className="c-eyebrow"><ChainIcon chain="robinhood" size={14} /> Platform token · live</span>
               <h3 className="font-display mt-2 text-3xl font-bold">$RUNE</h3>
-              <p className="c-muted mt-2 max-w-md text-sm">The Runehood token lives on one chain only: Robinhood Chain, launched on pons with liquidity locked from block one. Runes you launch can still trade on any of the five chains.</p>
+              <p className="c-muted mt-2 max-w-md text-sm">The Runehood token lives on one chain only: Robinhood Chain, launched on pons with liquidity locked from block one.</p>
+              <p className="mt-2 max-w-md text-sm font-semibold" style={{ color: "var(--c-rose)" }}>New: launch your Rune paired with $RUNE. Every buy buys $RUNE, and every graduation locks $RUNE in a pool forever.</p>
               <div className="mt-4 text-xs c-muted"><span className="c-dim mr-2 uppercase tracking-wider text-[10px]">CA</span><CopyCa short className="text-xs" /></div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <a href={RUNE_TOKEN.buyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-black" style={{ background: "var(--c-grad)" }}>Buy on pons <ArrowRight size={14} /></a>
+                <Link to="/create" className="rounded-xl border px-5 py-2.5 text-sm c-muted hover:text-white" style={{ background: "var(--c-surface)" }}>Launch with $RUNE</Link>
                 <Link to="/token" className="rounded-xl border px-5 py-2.5 text-sm c-muted hover:text-white" style={{ background: "var(--c-surface)" }}>Token details</Link>
               </div>
             </div>

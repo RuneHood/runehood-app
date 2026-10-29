@@ -48,6 +48,9 @@ function TokenPage() {
           ["Supply", "1,000,000,000 fixed. Nobody can mint more."],
           ["Chain", "Robinhood Chain only. Not bridged, not omnichain."],
           ["Liquidity", "Uniswap V4 pool vs ETH, created and locked by pons at launch."],
+          ["$RUNE pairs", "Runes on Robinhood Chain can launch paired with $RUNE: every buy buys $RUNE, every graduation locks $RUNE in a pool."],
+          ["Pay with ETH", "Buyers of $RUNE-paired Runes pay in ETH; it is swapped to $RUNE in the same transaction."],
+          ["Burn", "Burned supply is tracked live above."],
         ].map(([t, d]) => (
           <div key={t} className="c-card p-5">
             <div className="font-display font-semibold">{t}</div>

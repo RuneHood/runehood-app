@@ -62,6 +62,7 @@ export function ChainIcon({ chain, size = 18, ...rest }: P & { chain: ChainId | 
 }
 
 export function QuoteIcon({ quote, size = 16 }: { quote: string; size?: number }) {
+  if (quote === "RUNE") return <img src="/assets/logo.webp" alt="RUNE" width={size} height={size} className="rounded-full" />;
   if (quote === "ETH") return <ChainIcon chain="ethereum" size={size} />;
   if (quote === "SOL") return <ChainIcon chain="solana" size={size} />;
   if (quote === "BNB") return <ChainIcon chain="bsc" size={size} />;

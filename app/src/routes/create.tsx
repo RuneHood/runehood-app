@@ -65,8 +65,8 @@ function Create() {
   const evmLive = liveDeployment(chain);
   const solLive = chain === "solana" && SOL_LIVE;
   const live = evmLive || solLive;
-  const stockQuotes = (evmLive ? Object.keys(evmLive.stockQuotes ?? {}) : []) as Quote[];
-  const quotes = (evmLive ? [...Object.keys(evmLive.quotes), ...stockQuotes] : solLive ? ["SOL"] : c.quotes) as Quote[];
+  const stockQuotes = (evmLive ? Object.keys(evmLive.stockQuotes ?? {}).filter((q) => isStock(q)) : []) as Quote[];
+  const quotes = (evmLive ? [...Object.keys(evmLive.quotes), ...Object.keys(evmLive.stockQuotes ?? {})] : solLive ? ["SOL"] : c.quotes) as Quote[];
   useEffect(() => {
     if (!quotes.includes(quote)) setQuote(quotes[0]);
   }, [quotes, quote]);
@@ -199,11 +199,14 @@ function Create() {
               <div className="flex flex-wrap gap-2">
                 {quotes.filter((q) => !stockQuotes.includes(q)).map((q) => (
                   <button key={q} onClick={() => setQuote(q)} className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${quote === q ? "text-white" : "c-muted"}`} style={quote === q ? { background: "rgba(47,210,122,.12)", borderColor: "var(--c-ruby)" } : { background: "var(--c-bg)" }}>
-                    <QuoteIcon quote={q} /> {ticker || "RUNE"} / {q}
+                    <QuoteIcon quote={q} /> {ticker || "RUNE"} / {q === "RUNE" ? "$RUNE" : q}{q === "RUNE" && <span className="ml-1 rounded px-1.5 py-0.5 text-[10px]" style={{ background: "rgba(47,210,122,.18)", color: "var(--c-rose)" }}>every buy buys $RUNE</span>}
                   </button>
                 ))}
               </div>
             </Field>
+            {quote === "RUNE" && (
+              <p className="c-muted -mt-2 text-xs">Paired with $RUNE: buyers can pay in ETH (swapped to $RUNE in the same transaction) or in $RUNE. The curve raises $RUNE and at graduation your Rune gets a locked Uniswap V4 pool against $RUNE. Creator fees and tax are paid in $RUNE.</p>
+            )}
             {stockQuotes.length > 0 && (
               <Field label="Or pair with a stock">
                 <p className="c-muted -mt-1 mb-3 text-xs">Robinhood Stock Tokens as the pair: buyers pay in the stock, the curve raises the stock, and at graduation the Uniswap V4 pool is {ticker || "RUNE"} / that stock. Creator fees and tax are paid in the stock too.</p>
