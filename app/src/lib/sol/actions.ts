@@ -225,7 +225,25 @@ async function raydiumFor(owner: string) {
     signAllTransactions: (<T,>(txs: T[]) => p.signAllTransactions(txs)) as never,
     disableLoadToken: true,
   });
+  // Public RPCs reject "indexed" calls (getTokenAccountsByOwner). Mark the wallet's token list as loaded so the SDK
+  // works with the owner's associated token accounts (created idempotently when missing) instead of scanning them.
+  raydium.account.updateTokenAccount({ tokenAccounts: [], tokenAccountRawInfos: [] } as never);
   return { sdk, raydium, web3, BN, connection };
+}
+
+/**
+ * Give the Raydium SDK the owner's associated token accounts for `mints` (read with getMultipleAccounts),
+ * so it never needs the indexed getTokenAccountsByOwner call that public RPCs block.
+ */
+async function preloadTokenAccounts(raydium: { account: { updateTokenAccount: (x: never) => unknown } }, owner: string, mints: string[]) {
+  const { web3, spl, BN, connection } = await libs();
+  const o = new web3.PublicKey(owner);
+  const atas = mints.map((m) => spl.getAssociatedTokenAddressSync(new web3.PublicKey(m), o, true, spl.TOKEN_PROGRAM_ID));
+  const infos = await connection.getMultipleAccountsInfo(atas);
+  const raw = infos.flatMap((info, i) =>
+    info ? [{ pubkey: atas[i], programId: spl.TOKEN_PROGRAM_ID, accountInfo: { mint: new web3.PublicKey(mints[i]), owner: o, amount: new BN(info.data.subarray(64, 72), "le") } }] : [],
+  );
+  raydium.account.updateTokenAccount({ tokenAccounts: [], tokenAccountRawInfos: raw } as never);
 }
 
 /** Send a Raydium SDK build result (single legacy transaction) through the wallet-safe path. */
@@ -297,6 +315,7 @@ async function tradeRaydium(p: { owner: string; pool: string; side: "buy" | "sel
   const st = await launchLabState(p.pool);
   if (!st) throw new Error("Pool not found");
   const { sdk, raydium, BN } = await raydiumFor(p.owner);
+  await preloadTokenAccounts(raydium as never, p.owner, [st.mintA.toBase58(), WSOL]);
   const base = { programId: sdk.LAUNCHPAD_PROGRAM, mintA: st.mintA, slippage: new BN(500), txVersion: sdk.TxVersion.LEGACY };
   const built =
     p.side === "buy"
